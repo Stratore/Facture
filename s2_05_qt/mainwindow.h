@@ -1,11 +1,13 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include "facture.h"
 #include <QMainWindow>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QTextEdit>
+#include <QMdiArea>
 
 class MainWindow : public QMainWindow
 {
@@ -21,10 +23,15 @@ private:
     QVBoxLayout *layoutAccueil;
     QVBoxLayout *MenuConnecter;
     QTextEdit *affichageFacture;
+    QMdiArea *m_mdiArea;
 
 private slots :
     void LayoutSuivant();
     void ouvrir();
+    void addfacture();
+    void NouveauChamps();
+    bool estAdmin();
+    void changerLesVals();
 
 public:
 

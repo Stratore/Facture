@@ -9,8 +9,35 @@
 #include <QFileDialog>
 
 
+
 bool MainWindow::verifconex() {     //cette fonctione permet de vérifier si l'utilisateur a marqué qqc avant de faire suivant
     if (!champID->text().isEmpty() && !champMDP->text().isEmpty())
+        return true;
+    else
+        return false;
+}
+
+void MainWindow::addfacture() {                 //rejouter une noouvelle facture
+    QWidget *fenetreVide = new QWidget();   //on crée un widget
+
+    fenetreVide->setWindowTitle("Nouvelle Facture");
+
+    m_mdiArea->addSubWindow(fenetreVide);       //on l'ajoute a la zone mdi
+
+    fenetreVide->show();        //on l'affiche
+}
+
+
+void MainWindow::NouveauChamps() {
+
+}
+
+void MainWindow::changerLesVals() {
+
+}
+
+bool MainWindow::estAdmin() {               // si l'utilisateur est un administrateur
+    if (champID->text() == "admin" && champMDP->text() == "1234")
         return true;
     else
         return false;
@@ -21,17 +48,32 @@ void MainWindow::LayoutSuivant() {
 
     if (verifconex()) {
 
-        QWidget *conteneurAccueil = new QWidget(); //on crée un nouveau conteneur
 
+        //création de widget maitre qui contiendra tous
+        QWidget *conteneurAccueil = new QWidget(); //on crée un nouveau conteneur
         layoutAccueil = new QVBoxLayout(conteneurAccueil); // on crée un nouveau layout
 
-    // Ajoutons un petit texte pour vérifier que ça marche
+        m_mdiArea = new QMdiArea(this); //on crée une zoen mdi qui va pouvoire resevoire plusieur factures
+        m_mdiArea->setViewMode(QMdiArea::TabbedView);
+        m_mdiArea->setTabsClosable(true);
 
-        QLabel *bienvenue = new QLabel("Bienvenue dans votre session !");
+        //création d'un titre
+        QLabel *bienvenue = new QLabel("Bienvenue dans votre session Utilisateur");
         bienvenue->setAlignment(Qt::AlignCenter);
+
+        //fonctionélitées
+        QPushButton *AjouterUnChamps= new QPushButton("Ajouter un champs");
+        connect(AjouterUnChamps, SIGNAL(clicked()), this, SLOT(NouveauChamps()));
+
+
         layoutAccueil->addWidget(bienvenue);
+        layoutAccueil->addWidget(AjouterUnChamps);
+        layoutAccueil->addWidget(m_mdiArea);
+
+
 
         setCentralWidget(conteneurAccueil);
+
 
     } else {
 
@@ -40,28 +82,87 @@ void MainWindow::LayoutSuivant() {
         champID->setPlaceholderText("veuillez remplir les deux champs");
     }
 
+    //Menu fichier ---------------------------------------------------------
+    QMenu *MenuFichier = new QMenu(QString::fromUtf8("&Fichier"), this);
+    menuBar()->addMenu(MenuFichier);  //création de fichier
+
+
+    //crée l'action ouvrire ------
+    QAction *actionOuvrir = new QAction(QString::fromUtf8("Ouvrir"), this);
+
+    connect(actionOuvrir, SIGNAL(triggered()), this, SLOT(ouvrir()));
+    //ajouter action enregistrer au menu nouveau
+    MenuFichier->addAction(actionOuvrir);
+
+
+    affichageFacture = new QTextEdit();
+    affichageFacture->setReadOnly(true); // On ne veut pas que l'utilisateur modifie la facture
+    layoutAccueil->addWidget(affichageFacture);
+
+
+
+    //creer une nouvelle facture
+    QAction *CreerNouvelleFacture = new QAction(QString::fromUtf8("Nouvelle Facture"), this);
+
+    connect(CreerNouvelleFacture, SIGNAL(triggered()), this, SLOT(addfacture()));
+    //ajouter action enregistrer au menu nouveau
+    MenuFichier->addAction(CreerNouvelleFacture);
+
+
+
+    // Fonctionalitées ADMINE
+    if (estAdmin()) {       //si l'utilisateur est un admine
+        QMenu *MenuAdmin = new QMenu(QString::fromUtf8("Administrateur"), this);
+        menuBar()->addMenu(MenuAdmin);
+
+
+        QAction *changerLesValeur = new QAction(QString::fromUtf8("Changer les valeurs"), this);
+
+        connect(changerLesValeur, SIGNAL(triggered()), this, SLOT(changerLesVals));
+        //ajouter action enregistrer au menu nouveau
+        MenuAdmin->addAction(changerLesValeur);
+
+
+    }
+
+
+
+
+
+
 }
 
 
 
-void MainWindow::ouvrir() {  //methode ouvrire
+void MainWindow::ouvrir() {
+    // 1. On demande le fichier à l'utilisateur
     QString fileName = QFileDialog::getOpenFileName(
-        0,
-        "Ouvrir un fichier",
-        "/",
-        "Fichiers textes (*.txt);;Fichiers XML (*.xml)");
+        this,                             // 'this' au lieu de 0 pour centrer la fenêtre
+        "Sélectionner la facture",
+        QDir::homePath(),                 // Ouvre dans le dossier utilisateur
+        "Fichiers textes (*.txt);;Tous les fichiers (*.*)");
 
-    if( fileName != "" )
-    {
+    // 2. Si l'utilisateur n'a pas annulé
+    if (!fileName.isEmpty()) {                                  //A CHANGé ICI ! IL FAUT QUE CA OUVRE DIRECTEMENT DANS UN DOSSIER AVEC DEJA DES FACTURES
         QFile file(fileName);
-        if( file.open(QIODevice::Text | QIODevice::ReadOnly) )
-        {
+
+        // 3. On tente d'ouvrir le fichier en lecture seule
+        if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
             QTextStream stream(&file);
-            layoutAccueil->setText(stream.readAll());
+
+            // 4. On lit tout et on l'envoie dans le QTextEdit
+            QString contenu = stream.readAll();
+            affichageFacture->setPlainText(contenu);
+
             file.close();
+
+            // On change le titre pour montrer quel fichier est ouvert
+            setWindowTitle("Facture : " + QFileInfo(fileName).fileName());
+        } else {
+            // Optionnel : un petit message si le fichier est corrompu ou bloqué
+            affichageFacture->setPlainText("Erreur : Impossible de lire le fichier.");
         }
     }
-    setWindowTitle(fileName);
 }
 
 
@@ -190,29 +291,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 
 
-    //Menu fichier ---------------------------------------------------------
-    QMenu *MenuFichier = new QMenu(QString::fromUtf8("&Fichier"), this);
-    menuBar()->addMenu(MenuFichier);  //création de fichier
 
-
-    //crée l'action ouvrire ------
-    QAction *actionOuvrir = new QAction(QString::fromUtf8("Ouvrir"), this);
-
-    connect(actionOuvrir, SIGNAL(triggered()), this, SLOT(ouvrir()));
-    //ajouter action enregistrer au menu nouveau
-    MenuFichier->addAction(actionOuvrir);
-
-
-    affichageFacture = new QTextEdit();
-    affichageFacture->setReadOnly(true); // On ne veut pas que l'utilisateur modifie la facture
-    layoutAccueil->addWidget(affichageFacture);
-
-    QPushButton *btnOuvrir = new QPushButton("Charger une facture");
-    connect(btnOuvrir, &QPushButton::clicked, this, &MainWindow::ouvrir);
-    layoutAccueil->addWidget(btnOuvrir);
-
-    setCentralWidget(conteneurAccueil);
-}
 
 }
 
