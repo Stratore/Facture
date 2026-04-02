@@ -53,22 +53,78 @@ void MainWindow::NouveauChamps() {
     conteneurnouveauchamp->setWindowTitle("Champs");  //nom de la fenêtre
 
 
-    connect(champIndex, &QLineEdit::returnPressed, [=]() {
+    connect(champIndex, &QLineEdit::returnPressed, [=]() { //nouvelle version par Julyan
+
         QString texte = champIndex->text();
 
         if (!texte.isEmpty()) {
-            layoutAccueil->addWidget(new QLabel("Valeure ajoutée : " + texte));
+
+            double index = texte.toDouble();
+
+            Facture f(0, index); // simple exemple
+            listeFactures.append(f);
+
+            layoutAccueil->addWidget(new QLabel("Facture ajoutée : " + texte));
+
             conteneurnouveauchamp->close();
         }
-
-
     });
     conteneurnouveauchamp->show();
 
 }
 
-void MainWindow::changerLesVals() {
+void MainWindow::changerLesVals() { // julyan
 
+    QWidget *fenetre = new QWidget();
+    fenetre->setWindowTitle("Paramètres Admin");
+
+    QFormLayout *layout = new QFormLayout(fenetre);
+
+    QLineEdit *champPrix = new QLineEdit();
+    QLineEdit *champAbo = new QLineEdit();
+
+    champPrix->setPlaceholderText("Prix kWh actuel: " + QString::number(Facture::getPrixKwh()));
+    champAbo->setPlaceholderText("Abonnement actuel: " + QString::number(Facture::getAbonnement()));
+
+    layout->addRow("Prix kWh :", champPrix);
+    layout->addRow("Abonnement :", champAbo);
+
+    QPushButton *btnValider = new QPushButton("Valider");
+    layout->addWidget(btnValider);
+
+    connect(btnValider, &QPushButton::clicked, [=]() {
+
+        if (!champPrix->text().isEmpty())
+            Facture::setPrixKwh(champPrix->text().toDouble());
+
+        if (!champAbo->text().isEmpty())
+            Facture::setAbonnement(champAbo->text().toDouble());
+
+        fenetre->close();
+    });
+
+    fenetre->show();
+}
+
+void MainWindow::afficherStats() { //julyan
+
+    double total = 0;
+
+    for (const Facture &f : listeFactures) {
+        total += f.getConsommation();
+    }
+
+    double moyenne = 0;
+    if (!listeFactures.isEmpty())
+        moyenne = total / listeFactures.size();
+
+    QString stats =
+        "----- STATISTIQUES -----\n"
+        "Nombre de factures : " + QString::number(listeFactures.size()) + "\n" +
+        "Consommation totale : " + QString::number(total) + " kWh\n" +
+        "Moyenne : " + QString::number(moyenne) + " kWh\n";
+
+    affichageFacture->setPlainText(stats);
 }
 
 bool MainWindow::estAdmin() {               // si l'utilisateur est un administrateur
@@ -156,6 +212,9 @@ void MainWindow::LayoutSuivant() {
         //ajouter action enregistrer au menu nouveau
         MenuAdmin->addAction(changerLesValeur);
 
+        QAction *statsAction = new QAction("Statistiques", this);
+        connect(statsAction, SIGNAL(triggered()), this, SLOT(afficherStats()));
+        MenuAdmin->addAction(statsAction);
 
     }
 

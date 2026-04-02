@@ -45,3 +45,23 @@ QString Facture::getResume() const {
         .arg(getCoutConsommation(), 0, 'f', 2)
         .arg(getMontantTotalTTC(), 0, 'f', 2);
 }
+
+// partie Julyan
+double Facture::m_abonnementMensuel = 12.60;
+double Facture::m_prixkWh = 0.2516;
+
+void Facture::setPrixKwh(double prix) {
+    m_prixkWh = prix;
+}
+
+void Facture::setAbonnement(double abo) {
+    m_abonnementMensuel = abo;
+}
+
+double Facture::getPrixKwh() {
+    return m_prixkWh;
+}
+
+double Facture::getAbonnement() {
+    return m_abonnementMensuel;
+}

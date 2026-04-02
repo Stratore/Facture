@@ -9,7 +9,7 @@
 #include <QTextEdit>
 #include <QMdiArea>
 #include <QFormLayout>
-
+#include <QVector>
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -26,6 +26,7 @@ private:
     QTextEdit *affichageFacture;
     QWidget *fenetreFacture;
     QMdiArea *m_mdiArea;
+    QVector<Facture> listeFactures; //julyan
 
 private slots :
     void LayoutSuivant();
@@ -34,7 +35,7 @@ private slots :
     void NouveauChamps();
     bool estAdmin();
     void changerLesVals();
-
+    void afficherStats(); //julyan
 public:
 
 

@@ -7,21 +7,30 @@ class Facture
 public:
 
     Facture(double indexInitial = 0, double indexActuel = 0);
+
     void setReleves(double initial, double actuel);
-    double getConsommation() const;      // Différence des index
-    double getCoutConsommation() const;  // Consommation * Prix du kWh
-    double getMontantTotalTTC() const;   // Cout consommation + Abonnement
+
+    double getConsommation() const;
+    double getCoutConsommation() const;
+    double getMontantTotalTTC() const;
+
     bool estValide() const;
-    QString getResume() const;           // Génère le texte détaillé pour l'affichage
+    QString getResume() const;
+
+    //parti admin par Julyan
+    static void setPrixKwh(double prix);
+    static void setAbonnement(double abo);
+
+    static double getPrixKwh();
+    static double getAbonnement();
 
 private :
-    // Données de saisie
     double m_indexInitial;
     double m_indexActuel;
 
-    // Variables tarifaires l'admine aura accèes a ces donnée pour les changer
-    const double m_abonnementMensuel = 12.60;
-    const double m_prixkWh = 0.2516;
+    // static = commun à toutes les factures
+    static double m_abonnementMensuel;
+    static double m_prixkWh;
 };
 
 #endif // FACTURE_H
