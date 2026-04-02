@@ -11,12 +11,18 @@
 
 
 
-bool MainWindow::verifconex() {     //cette fonctione permet de vérifier si l'utilisateur a marqué qqc avant de faire suivant
-    if (!champID->text().isEmpty() && !champMDP->text().isEmpty())
+bool MainWindow::verifconex() {
+    QString id = champID->text();
+    QString mdp = champMDP->text();
+
+    // On vérifie si c'est l'admin OU un utilisateur standard
+    if ((id == "admin" && mdp == "1234") || (id == "user" && mdp == "123")) {
         return true;
-    else
+    } else {
         return false;
+    }
 }
+
 
 void MainWindow::addfacture() {                 //rejouter une noouvelle facture
     fenetreFacture = new QWidget();   //on crée un widget
@@ -24,6 +30,8 @@ void MainWindow::addfacture() {                 //rejouter une noouvelle facture
     fenetreFacture->setWindowTitle("Nouvelle Facture");
 
     QVBoxLayout *layoutInterne = new QVBoxLayout(fenetreFacture);
+
+    layoutAccueil->addWidget(new QLabel);        //////////////////////////////////////////////////changer
 
     //fonctionélitées
     QPushButton *AjouterUnChamps= new QPushButton("Ajouter un champs");
@@ -164,63 +172,64 @@ void MainWindow::LayoutSuivant() {
         setCentralWidget(conteneurAccueil);
 
 
+        //Menu fichier ---------------------------------------------------------
+        QMenu *MenuFichier = new QMenu(QString::fromUtf8("&Fichier"), this);
+        menuBar()->addMenu(MenuFichier);  //création de fichier
+
+
+        //crée l'action ouvrire ------
+        QAction *actionOuvrir = new QAction(QString::fromUtf8("Ouvrir"), this);
+
+        connect(actionOuvrir, SIGNAL(triggered()), this, SLOT(ouvrir()));
+        //ajouter action enregistrer au menu nouveau
+        MenuFichier->addAction(actionOuvrir);
+
+
+        affichageFacture = new QTextEdit();
+        affichageFacture->setReadOnly(true); // On ne veut pas que l'utilisateur modifie la facture
+        layoutAccueil->addWidget(affichageFacture);
+
+
+
+        //creer une nouvelle facture
+        QAction *CreerNouvelleFacture = new QAction(QString::fromUtf8("Nouvelle Facture"), this);
+
+        connect(CreerNouvelleFacture, SIGNAL(triggered()), this, SLOT(addfacture()));
+        //ajouter action enregistrer au menu nouveau
+        MenuFichier->addAction(CreerNouvelleFacture);
+
+
+
+        // Fonctionalitées ADMINE
+        if (estAdmin()) {       //si l'utilisateur est un admine
+            QMenu *MenuAdmin = new QMenu(QString::fromUtf8("Administrateur"), this);
+            menuBar()->addMenu(MenuAdmin);
+
+
+            QAction *changerLesValeur = new QAction(QString::fromUtf8("Changer les valeurs"), this);
+
+            connect(changerLesValeur, SIGNAL(triggered()), this, SLOT(changerLesVals));
+            //ajouter action enregistrer au menu nouveau
+            MenuAdmin->addAction(changerLesValeur);
+
+            QAction *statsAction = new QAction("Statistiques", this);
+            connect(statsAction, SIGNAL(triggered()), this, SLOT(afficherStats()));
+            MenuAdmin->addAction(statsAction);
+
+        }
+
+
+
+
+
     } else {
 
         champID->clear();
         champMDP->clear();
-        champID->setPlaceholderText("veuillez remplir les deux champs");        //changer ici
+        champID->setPlaceholderText("Identifiants incorrects !");
+        champID->setFocus();
 
     }
-
-    //Menu fichier ---------------------------------------------------------
-    QMenu *MenuFichier = new QMenu(QString::fromUtf8("&Fichier"), this);
-    menuBar()->addMenu(MenuFichier);  //création de fichier
-
-
-    //crée l'action ouvrire ------
-    QAction *actionOuvrir = new QAction(QString::fromUtf8("Ouvrir"), this);
-
-    connect(actionOuvrir, SIGNAL(triggered()), this, SLOT(ouvrir()));
-    //ajouter action enregistrer au menu nouveau
-    MenuFichier->addAction(actionOuvrir);
-
-
-    affichageFacture = new QTextEdit();
-    affichageFacture->setReadOnly(true); // On ne veut pas que l'utilisateur modifie la facture
-    layoutAccueil->addWidget(affichageFacture);
-
-
-
-    //creer une nouvelle facture
-    QAction *CreerNouvelleFacture = new QAction(QString::fromUtf8("Nouvelle Facture"), this);
-
-    connect(CreerNouvelleFacture, SIGNAL(triggered()), this, SLOT(addfacture()));
-    //ajouter action enregistrer au menu nouveau
-    MenuFichier->addAction(CreerNouvelleFacture);
-
-
-
-    // Fonctionalitées ADMINE
-    if (estAdmin()) {       //si l'utilisateur est un admine
-        QMenu *MenuAdmin = new QMenu(QString::fromUtf8("Administrateur"), this);
-        menuBar()->addMenu(MenuAdmin);
-
-
-        QAction *changerLesValeur = new QAction(QString::fromUtf8("Changer les valeurs"), this);
-
-        connect(changerLesValeur, SIGNAL(triggered()), this, SLOT(changerLesVals));
-        //ajouter action enregistrer au menu nouveau
-        MenuAdmin->addAction(changerLesValeur);
-
-        QAction *statsAction = new QAction("Statistiques", this);
-        connect(statsAction, SIGNAL(triggered()), this, SLOT(afficherStats()));
-        MenuAdmin->addAction(statsAction);
-
-    }
-
-
-
-
 
 
 }
