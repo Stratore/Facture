@@ -8,76 +8,383 @@
 #include <QMenuBar>
 #include <QFileDialog>
 #include <QMdiSubWindow>
+#include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QDebug>
+#include <QCoreApplication>
 
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent)
+{
+    // 1. On s'assure que le fichier JSON existe au démarrage
+    QFile verifFichier("users.json");
+    if (!verifFichier.exists()) {
+        creerFichierUtilisateurs();
+    }
 
+    setWindowTitle("Gestion des Factures");
+    setWindowFlags(Qt::WindowStaysOnTopHint);
+    resize(700, 700);
 
-bool MainWindow::verifconex() {     //cette fonctione permet de vérifier si l'utilisateur a marqué qqc avant de faire suivant
-    if (!champID->text().isEmpty() && !champMDP->text().isEmpty())
-        return true;
-    else
-        return false;
+    // 2. Création du QStackedWidget (Notre système de pages)
+    stackedWidget = new QStackedWidget(this);
+    setCentralWidget(stackedWidget);
+
+    // ==========================================
+    // PAGE 0 : CONNEXION
+    // ==========================================
+    pageConnexion = new QWidget();
+    QVBoxLayout *layoutConnexion = new QVBoxLayout(pageConnexion);
+
+    QLabel *labelTitre = new QLabel("S'identifier");
+    labelTitre->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+    labelTitre->setAlignment(Qt::AlignTop | Qt::AlignCenter);
+    QFont police("Segoe UI", 26, QFont::Bold);
+    labelTitre->setFont(police);
+
+    layoutConnexion->addWidget(labelTitre);
+    layoutConnexion->addSpacing(30);
+
+    QString styleChamps =
+        "QLineEdit { border: 1px solid #dbdbdb; border-radius: 5px; padding: 8px; background-color: #fafafa; color: #262626; }"
+        "QLineEdit:focus { border: 1px solid #a8a8a8; }";
+
+    champID = new QLineEdit();
+    champID->setPlaceholderText("Nom Utilisateur");
+    champID->setStyleSheet(styleChamps);
+    layoutConnexion->addWidget(champID);
+    layoutConnexion->addSpacing(15);
+
+    champMDP = new QLineEdit();
+    champMDP->setEchoMode(QLineEdit::Password);
+    champMDP->setPlaceholderText("Mot de passe");
+    champMDP->setStyleSheet(styleChamps);
+    layoutConnexion->addWidget(champMDP);
+    layoutConnexion->addSpacing(30);
+
+    suivant = new QPushButton("Suivant");
+    suivant->setFixedWidth(120);
+    suivant->setMinimumHeight(35);
+    suivant->setStyleSheet(
+        "QPushButton { background-color: #0095f6; color: white; border-radius: 8px; font-weight: bold; border: none; }"
+        "QPushButton:hover { background-color: #1877f2; }"
+        "QPushButton:pressed { background-color: #0074cc; }");
+    connect(suivant, &QPushButton::clicked, this, &MainWindow::layoutSuivant);
+
+    QHBoxLayout *layoutBouton = new QHBoxLayout();
+    layoutBouton->addWidget(suivant);
+    layoutConnexion->addLayout(layoutBouton);
+    layoutConnexion->addStretch();
+
+    // ==========================================
+    // PAGE 1 : APPLICATION PRINCIPALE
+    // ==========================================
+    pagePrincipale = new QWidget();
+    layoutAccueil = new QVBoxLayout(pagePrincipale);
+
+    QLabel *bienvenue = new QLabel("Bienvenue dans votre session Utilisateur");
+    bienvenue->setAlignment(Qt::AlignCenter);
+    layoutAccueil->addWidget(bienvenue);
+
+    m_mdiArea = new QMdiArea(this);
+    m_mdiArea->setViewMode(QMdiArea::TabbedView);
+    m_mdiArea->setTabsClosable(true);
+    layoutAccueil->addWidget(m_mdiArea);
+
+    affichageFacture = new QTextEdit();
+    affichageFacture->setReadOnly(true);
+    layoutAccueil->addWidget(affichageFacture);
+
+    initialiserInterfacePrincipale(); // Prépare les menus
+
+    // On ajoute les pages
+    stackedWidget->addWidget(pageConnexion);
+    stackedWidget->addWidget(pagePrincipale);
+
+    // On démarre sur la page 0 (Connexion)
+    stackedWidget->setCurrentIndex(0);
 }
 
-void MainWindow::addfacture() {                 //rejouter une noouvelle facture
-    fenetreFacture = new QWidget();   //on crée un widget
+MainWindow::~MainWindow() {}
 
+void MainWindow::initialiserInterfacePrincipale() {
+    // Menu Fichier
+    MenuFichier = menuBar()->addMenu(QString::fromUtf8("&Fichier"));
+
+    QAction *actionOuvrir = new QAction(QString::fromUtf8("Ouvrir Fichier Txt"), this);
+    connect(actionOuvrir, &QAction::triggered, this, &MainWindow::ouvrir);
+    MenuFichier->addAction(actionOuvrir);
+
+    QAction *CreerNouvelleFacture = new QAction(QString::fromUtf8("Nouvelle Facture"), this);
+    connect(CreerNouvelleFacture, &QAction::triggered, this, &MainWindow::addfacture);
+    MenuFichier->addAction(CreerNouvelleFacture);
+
+    QAction *actionDeconnexion = new QAction("Se déconnecter", this);
+    connect(actionDeconnexion, &QAction::triggered, this, &MainWindow::deconnexion);
+    MenuFichier->addAction(actionDeconnexion);
+
+    // Menu Admin (Créé, mais invisible par défaut)
+    MenuAdmin = menuBar()->addMenu(QString::fromUtf8("Administrateur"));
+
+    QAction *changerLesValeur = new QAction(QString::fromUtf8("Changer les valeurs"), this);
+    connect(changerLesValeur, &QAction::triggered, this, &MainWindow::changerLesVals);
+    MenuAdmin->addAction(changerLesValeur);
+
+    QAction *statsAction = new QAction("Statistiques Générales", this);
+    connect(statsAction, &QAction::triggered, this, &MainWindow::afficherStats);
+    MenuAdmin->addAction(statsAction);
+
+    QAction *creerCompteAction = new QAction("Créer un nouveau compte", this);
+    connect(creerCompteAction, &QAction::triggered, this, &MainWindow::adminCreerCompte);
+    MenuAdmin->addAction(creerCompteAction);
+
+    // On cache les menus au démarrage
+    MenuFichier->menuAction()->setVisible(false);
+    MenuAdmin->menuAction()->setVisible(false);
+}
+
+void MainWindow::creerFichierUtilisateurs() {
+    QJsonObject user1;
+    user1["id"] = "jean";
+    user1["mdp"] = "123";
+    user1["role"] = "user";
+    user1["factures"] = QJsonArray(); // Tableau vide pour ses factures
+
+    QJsonObject admin;
+    admin["id"] = "admin";
+    admin["mdp"] = "1234";
+    admin["role"] = "admin";
+    admin["factures"] = QJsonArray();
+
+    QJsonArray listeUtilisateurs;
+    listeUtilisateurs.append(user1);
+    listeUtilisateurs.append(admin);
+
+    QJsonObject racine;
+    racine["utilisateurs"] = listeUtilisateurs;
+
+    QJsonDocument doc(racine);
+    QFile fichier("users.json");
+    if (fichier.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        fichier.write(doc.toJson());
+        fichier.close();
+    }
+}
+
+bool MainWindow::verifierConnexion() {
+    QString idSaisi = champID->text();
+    QString mdpSaisi = champMDP->text();
+
+    if (idSaisi.isEmpty() || mdpSaisi.isEmpty()) return false;
+
+    QFile fichier("users.json");
+    if (!fichier.open(QIODevice::ReadOnly | QIODevice::Text)) return false;
+
+    QJsonDocument doc = QJsonDocument::fromJson(fichier.readAll());
+    fichier.close();
+
+    QJsonArray tableau = doc.object()["utilisateurs"].toArray();
+    for (const QJsonValue &val : tableau) {
+        QJsonObject user = val.toObject();
+        if (user["id"].toString() == idSaisi && user["mdp"].toString() == mdpSaisi) {
+            m_roleUtilisateurActuel = user["role"].toString();
+            m_idUtilisateurActuel = user["id"].toString();
+            return true;
+        }
+    }
+    return false;
+}
+
+bool MainWindow::estAdmin() {
+    return m_roleUtilisateurActuel == "admin";
+}
+
+void MainWindow::layoutSuivant() {
+    if (verifierConnexion()) {
+        stackedWidget->setCurrentIndex(1); // On passe à l'application !
+        setWindowTitle("Session : " + m_idUtilisateurActuel);
+
+        // Affichage des menus
+        MenuFichier->menuAction()->setVisible(true);
+        MenuAdmin->menuAction()->setVisible(estAdmin());
+
+        // On charge les factures enregistrées de l'utilisateur
+        chargerFacturesUtilisateur();
+
+    } else {
+        champID->clear();
+        champMDP->clear();
+        champID->setPlaceholderText("Identifiants incorrects !");
+    }
+}
+
+void MainWindow::deconnexion() {
+    // Réinitialise les variables et retourne à la page de connexion
+    m_idUtilisateurActuel.clear();
+    m_roleUtilisateurActuel.clear();
+    listeFactures.clear();
+    affichageFacture->clear();
+
+    champID->clear();
+    champMDP->clear();
+    champID->setPlaceholderText("Nom Utilisateur");
+
+    MenuFichier->menuAction()->setVisible(false);
+    MenuAdmin->menuAction()->setVisible(false);
+
+    stackedWidget->setCurrentIndex(0);
+    setWindowTitle("Facture - Connexion");
+}
+
+void MainWindow::chargerFacturesUtilisateur() {
+    listeFactures.clear();
+    affichageFacture->clear();
+    QString historique = "--- Historique de " + m_idUtilisateurActuel + " ---\n";
+
+    QFile fichier("users.json");
+    if (!fichier.open(QIODevice::ReadOnly | QIODevice::Text)) return;
+    QJsonDocument doc = QJsonDocument::fromJson(fichier.readAll());
+    fichier.close();
+
+    QJsonArray tableau = doc.object()["utilisateurs"].toArray();
+    for (const QJsonValue &val : tableau) {
+        QJsonObject user = val.toObject();
+        if (user["id"].toString() == m_idUtilisateurActuel) {
+            QJsonArray factures = user["factures"].toArray();
+            for (const QJsonValue &factVal : factures) {
+                double index = factVal.toDouble();
+                Facture f(0, index);
+                listeFactures.append(f);
+                historique += f.getResume() + "\n\n";
+            }
+            break;
+        }
+    }
+    affichageFacture->setPlainText(historique);
+}
+
+void MainWindow::sauvegarderFactureUtilisateur(double index) {
+    QFile fichier("users.json");
+    if (!fichier.open(QIODevice::ReadOnly | QIODevice::Text)) return;
+    QJsonDocument doc = QJsonDocument::fromJson(fichier.readAll());
+    fichier.close();
+
+    QJsonObject racine = doc.object();
+    QJsonArray tableau = racine["utilisateurs"].toArray();
+
+    for (int i = 0; i < tableau.size(); ++i) {
+        QJsonObject user = tableau[i].toObject();
+        if (user["id"].toString() == m_idUtilisateurActuel) {
+            QJsonArray facturesArray = user["factures"].toArray();
+            facturesArray.append(index); // On ajoute le nouvel index
+            user["factures"] = facturesArray;
+            tableau[i] = user; // On remplace l'ancien objet utilisateur par le nouveau
+            break;
+        }
+    }
+
+    racine["utilisateurs"] = tableau;
+    QJsonDocument nouveauDoc(racine);
+    if (fichier.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        fichier.write(nouveauDoc.toJson());
+        fichier.close();
+    }
+}
+
+void MainWindow::addfacture() {
+    fenetreFacture = new QWidget();
     fenetreFacture->setWindowTitle("Nouvelle Facture");
-
     QVBoxLayout *layoutInterne = new QVBoxLayout(fenetreFacture);
 
-    //fonctionélitées
-    QPushButton *AjouterUnChamps= new QPushButton("Ajouter un champs");
-    connect(AjouterUnChamps, SIGNAL(clicked()), this, SLOT(NouveauChamps()));
+    QPushButton *AjouterUnChamps = new QPushButton("Ajouter un champs");
+    connect(AjouterUnChamps, &QPushButton::clicked, this, &MainWindow::NouveauChamps);
     layoutInterne->addWidget(AjouterUnChamps);
 
-
-    m_mdiArea->addSubWindow(fenetreFacture);       //on l'ajoute a la zone mdi
-
-    fenetreFacture->show();        //on l'affiche
+    m_mdiArea->addSubWindow(fenetreFacture);
+    fenetreFacture->show();
 }
 
-
 void MainWindow::NouveauChamps() {
-
-
-
-
-    QWidget *conteneurnouveauchamp = new QWidget(); //on crée un nouveau conteneur
-    QFormLayout *layoutNewChamps = new QFormLayout(conteneurnouveauchamp); // on crée un nouveau layout
-
+    QWidget *conteneurnouveauchamp = new QWidget();
+    QFormLayout *layoutNewChamps = new QFormLayout(conteneurnouveauchamp);
+    conteneurnouveauchamp->setWindowTitle("Champs");
 
     QLineEdit *champIndex = new QLineEdit();
     layoutNewChamps->addRow("Index Initial (kWh) :", champIndex);
 
-
-    conteneurnouveauchamp->setWindowTitle("Champs");  //nom de la fenêtre
-
-
-    connect(champIndex, &QLineEdit::returnPressed, [=]() { //nouvelle version par Julyan
-
+    connect(champIndex, &QLineEdit::returnPressed, [=]() {
         QString texte = champIndex->text();
-
         if (!texte.isEmpty()) {
-
             double index = texte.toDouble();
 
-            Facture f(0, index); // simple exemple
+            // On l'ajoute à la liste de la session
+            Facture f(0, index);
             listeFactures.append(f);
 
-            layoutAccueil->addWidget(new QLabel("Facture ajoutée : " + texte));
+            // On l'ajoute au fichier JSON de l'utilisateur !
+            sauvegarderFactureUtilisateur(index);
+
+            // On met à jour l'affichage
+            affichageFacture->append("\nNOUVELLE FACTURE AJOUTÉE :\n" + f.getResume());
 
             conteneurnouveauchamp->close();
+            fenetreFacture->close(); // Ferme aussi la sous-fenêtre MDI
         }
     });
     conteneurnouveauchamp->show();
-
 }
 
-void MainWindow::changerLesVals() { // julyan
+// Fonctionnalités d'Administration
+void MainWindow::adminCreerCompte() {
+    QWidget *fenetreCreation = new QWidget();
+    fenetreCreation->setWindowTitle("Créer un compte");
+    QFormLayout *layout = new QFormLayout(fenetreCreation);
 
+    QLineEdit *newId = new QLineEdit();
+    QLineEdit *newMdp = new QLineEdit();
+    layout->addRow("Nouvel ID :", newId);
+    layout->addRow("Mot de passe :", newMdp);
+
+    QPushButton *btnCreer = new QPushButton("Ajouter au JSON");
+    layout->addWidget(btnCreer);
+
+    connect(btnCreer, &QPushButton::clicked, [=]() {
+        if(newId->text().isEmpty() || newMdp->text().isEmpty()) return;
+
+        QFile fichier("users.json");
+        if (!fichier.open(QIODevice::ReadOnly | QIODevice::Text)) return;
+        QJsonDocument doc = QJsonDocument::fromJson(fichier.readAll());
+        fichier.close();
+
+        QJsonObject racine = doc.object();
+        QJsonArray tableau = racine["utilisateurs"].toArray();
+
+        QJsonObject nouvelUtilisateur;
+        nouvelUtilisateur["id"] = newId->text();
+        nouvelUtilisateur["mdp"] = newMdp->text();
+        nouvelUtilisateur["role"] = "user";
+        nouvelUtilisateur["factures"] = QJsonArray(); // Nouveau compte = 0 factures
+
+        tableau.append(nouvelUtilisateur);
+        racine["utilisateurs"] = tableau;
+        QJsonDocument nouveauDoc(racine);
+
+        if (fichier.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            fichier.write(nouveauDoc.toJson());
+            fichier.close();
+            affichageFacture->setPlainText("Le compte " + newId->text() + " a été créé !");
+        }
+        fenetreCreation->close();
+    });
+
+    fenetreCreation->show();
+}
+
+void MainWindow::changerLesVals() {
     QWidget *fenetre = new QWidget();
     fenetre->setWindowTitle("Paramètres Admin");
-
     QFormLayout *layout = new QFormLayout(fenetre);
 
     QLineEdit *champPrix = new QLineEdit();
@@ -93,301 +400,44 @@ void MainWindow::changerLesVals() { // julyan
     layout->addWidget(btnValider);
 
     connect(btnValider, &QPushButton::clicked, [=]() {
-
-        if (!champPrix->text().isEmpty())
-            Facture::setPrixKwh(champPrix->text().toDouble());
-
-        if (!champAbo->text().isEmpty())
-            Facture::setAbonnement(champAbo->text().toDouble());
-
+        if (!champPrix->text().isEmpty()) Facture::setPrixKwh(champPrix->text().toDouble());
+        if (!champAbo->text().isEmpty()) Facture::setAbonnement(champAbo->text().toDouble());
         fenetre->close();
     });
 
     fenetre->show();
 }
 
-void MainWindow::afficherStats() { //julyan
-
+void MainWindow::afficherStats() {
     double total = 0;
-
     for (const Facture &f : listeFactures) {
         total += f.getConsommation();
     }
 
     double moyenne = 0;
-    if (!listeFactures.isEmpty())
-        moyenne = total / listeFactures.size();
+    if (!listeFactures.isEmpty()) moyenne = total / listeFactures.size();
 
     QString stats =
         "----- STATISTIQUES -----\n"
-        "Nombre de factures : " + QString::number(listeFactures.size()) + "\n" +
-        "Consommation totale : " + QString::number(total) + " kWh\n" +
-        "Moyenne : " + QString::number(moyenne) + " kWh\n";
+        "Nombre de factures (utilisateur courant) : " + QString::number(listeFactures.size()) + "\n"
+                                                  "Consommation totale : " + QString::number(total) + " kWh\n"
+                                   "Moyenne : " + QString::number(moyenne) + " kWh\n";
 
     affichageFacture->setPlainText(stats);
 }
 
-bool MainWindow::estAdmin() {               // si l'utilisateur est un administrateur
-    if (champID->text() == "admin" && champMDP->text() == "1234")
-        return true;
-    else
-        return false;
-}
-
-
-void MainWindow::LayoutSuivant() {
-
-    if (verifconex()) {
-
-
-        //création de widget maitre qui contiendra tous
-        QWidget *conteneurAccueil = new QWidget(); //on crée un nouveau conteneur
-        layoutAccueil = new QVBoxLayout(conteneurAccueil); // on crée un nouveau layout
-
-        m_mdiArea = new QMdiArea(this); //on crée une zoen mdi qui va pouvoire resevoire plusieur factures
-        m_mdiArea->setViewMode(QMdiArea::TabbedView);
-        m_mdiArea->setTabsClosable(true);
-
-        //création d'un titre
-        QLabel *bienvenue = new QLabel("Bienvenue dans votre session Utilisateur");
-        bienvenue->setAlignment(Qt::AlignCenter);
-
-
-
-
-        layoutAccueil->addWidget(bienvenue);
-
-        layoutAccueil->addWidget(m_mdiArea);
-
-
-
-        setCentralWidget(conteneurAccueil);
-
-
-    } else {
-
-        champID->clear();
-        champMDP->clear();
-        champID->setPlaceholderText("veuillez remplir les deux champs");        //changer ici
-
-    }
-
-    //Menu fichier ---------------------------------------------------------
-    QMenu *MenuFichier = new QMenu(QString::fromUtf8("&Fichier"), this);
-    menuBar()->addMenu(MenuFichier);  //création de fichier
-
-
-    //crée l'action ouvrire ------
-    QAction *actionOuvrir = new QAction(QString::fromUtf8("Ouvrir"), this);
-
-    connect(actionOuvrir, SIGNAL(triggered()), this, SLOT(ouvrir()));
-    //ajouter action enregistrer au menu nouveau
-    MenuFichier->addAction(actionOuvrir);
-
-
-    affichageFacture = new QTextEdit();
-    affichageFacture->setReadOnly(true); // On ne veut pas que l'utilisateur modifie la facture
-    layoutAccueil->addWidget(affichageFacture);
-
-
-
-    //creer une nouvelle facture
-    QAction *CreerNouvelleFacture = new QAction(QString::fromUtf8("Nouvelle Facture"), this);
-
-    connect(CreerNouvelleFacture, SIGNAL(triggered()), this, SLOT(addfacture()));
-    //ajouter action enregistrer au menu nouveau
-    MenuFichier->addAction(CreerNouvelleFacture);
-
-
-
-    // Fonctionalitées ADMINE
-    if (estAdmin()) {       //si l'utilisateur est un admine
-        QMenu *MenuAdmin = new QMenu(QString::fromUtf8("Administrateur"), this);
-        menuBar()->addMenu(MenuAdmin);
-
-
-        QAction *changerLesValeur = new QAction(QString::fromUtf8("Changer les valeurs"), this);
-
-        connect(changerLesValeur, SIGNAL(triggered()), this, SLOT(changerLesVals));
-        //ajouter action enregistrer au menu nouveau
-        MenuAdmin->addAction(changerLesValeur);
-
-        QAction *statsAction = new QAction("Statistiques", this);
-        connect(statsAction, SIGNAL(triggered()), this, SLOT(afficherStats()));
-        MenuAdmin->addAction(statsAction);
-
-    }
-
-
-
-
-
-
-}
-
-
-
 void MainWindow::ouvrir() {
-    // 1. On demande le fichier à l'utilisateur
     QString fileName = QFileDialog::getOpenFileName(
-        this,                             // 'this' au lieu de 0 pour centrer la fenêtre
-        "Sélectionner la facture",
-        QDir::homePath(),                 // Ouvre dans le dossier utilisateur
-        "Fichiers textes (*.txt);;Tous les fichiers (*.*)");
+        this, "Sélectionner la facture", QDir::homePath(), "Fichiers textes (*.txt);;Tous les fichiers (*.*)");
 
-    // 2. Si l'utilisateur n'a pas annulé
-    if (!fileName.isEmpty()) {                                  //A CHANGé ICI ! IL FAUT QUE CA OUVRE DIRECTEMENT DANS UN DOSSIER AVEC DEJA DES FACTURES
+    if (!fileName.isEmpty()) {
         QFile file(fileName);
-
-        // 3. On tente d'ouvrir le fichier en lecture seule
         if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
             QTextStream stream(&file);
-
-            // 4. On lit tout et on l'envoie dans le QTextEdit
-            QString contenu = stream.readAll();
-            affichageFacture->setPlainText(contenu);
-
+            affichageFacture->setPlainText(stream.readAll());
             file.close();
-
-            // On change le titre pour montrer quel fichier est ouvert
-            setWindowTitle("Facture : " + QFileInfo(fileName).fileName());
         } else {
-            // Optionnel : un petit message si le fichier est corrompu ou bloqué
             affichageFacture->setPlainText("Erreur : Impossible de lire le fichier.");
         }
     }
 }
-
-
-
-
-
-
-
-MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent)
-{
-    //paramètre de la fenêtre
-    setWindowTitle("Facture");  //nom de la fenêtre
-    setWindowFlags(Qt::WindowStaysOnTopHint);       //pour le fait que quand elle aparaisse elle soit au dessu de tout
-    resize(700,700);        //la taille de la fenêtre
-
-    //def menu :
-    // 1. On crée un widget "conteneur"
-    QWidget *conteneur = new QWidget(this);
-
-    // 2. On dit à la MainWindow que c'est lui le centre
-    setCentralWidget(conteneur);
-
-    // 3. On crée le layout EN LE RATTACHANT au conteneur
-    MenuConnecter = new QVBoxLayout(conteneur);
-
-
-
-
-
-
-    //Le TITRE
-    QLabel *label = new QLabel();                       //titre s'identifer
-    label->setFrameStyle(QFrame::Panel | QFrame::Sunken);
-    label->setText("s'identifier");
-    label->setAlignment(Qt::AlignTop | Qt::AlignCenter);
-
-    //la police
-    QFont police;
-    police.setFamily("Segoe UI");
-    police.setPointSize(26);
-    police.setBold(true);
-    label->setFont(police);
-    MenuConnecter -> addWidget(label);    //Le TITRE
-
-
-    MenuConnecter->addSpacing(30);      //pour rajouter un espace
-
-
-    //style pour les champs
-    QString styleChamps =
-        "QLineEdit {"
-        "  border: 1px solid #dbdbdb;"
-        "  border-radius: 5px;"
-        "  padding: 8px;"              // Espace le texte du bord
-        "  background-color: #fafafa;"
-        "  color: #262626;"
-        "}"
-        "QLineEdit:focus {"            // Quand on clique dedans
-        "  border: 1px solid #a8a8a8;"
-        "}";
-
-
-    //Champ ID
-    champID = new QLineEdit();       // création de la case ou on mettra le ID
-    champID->setEchoMode(QLineEdit::Normal);  //ca permet de mettre le champ nprmal
-    champID->setPlaceholderText("Nom Utilisateur");
-    MenuConnecter -> addWidget(champID);
-    champID->setFocus();
-    champID->setStyleSheet(styleChamps);
-
-
-
-
-
-    MenuConnecter->addSpacing(15);
-
-
-
-    //Champ MDP
-    champMDP = new QLineEdit();       // création de la case ou on mettra la MDP
-    champMDP->setEchoMode(QLineEdit::Password);  //ca permet de mettre le mot de passe en ******** quand on l'écrit pour la confidentialité
-    champMDP->setPlaceholderText("Mot de passe");
-    MenuConnecter -> addWidget(champMDP);
-    champMDP->setStyleSheet(styleChamps);
-
-    MenuConnecter->addSpacing(30);
-
-
-
-
-
-    //Bouton suivant
-    suivant = new QPushButton("suivant", this);
-    connect(suivant, SIGNAL(clicked()), this, SLOT(LayoutSuivant()));      //quand on clique dessu ca fais la méthode suivant(
-
-    suivant->setStyleSheet(
-        "QPushButton {"
-        "  background-color: #0095f6;" // Bleu Instagram
-        "  color: white;"               // Texte blanc
-        "  border-radius: 8px;"        // Bords arrondis
-        "  font-weight: bold;"
-        "  border: none;"
-        "}"
-        "QPushButton:hover {"          // Quand on passe la souris dessus
-        "  background-color: #1877f2;"
-        "}"
-        "QPushButton:pressed {"        // Quand on clique
-        "  background-color: #0074cc;"
-        "}"
-        );
-
-    MenuConnecter -> addWidget(suivant);
-    suivant->setFixedWidth(120);
-    suivant->setMinimumHeight(35);
-
-    //Création d'un layout en H pour suivant pour le metre plus a droite
-    QHBoxLayout *layoutBouton = new QHBoxLayout();
-    //layoutBouton->addStretch(); // Le ressort pousse le bouton vers la droite
-    layoutBouton->addWidget(suivant); // On ajoute le bouton
-    MenuConnecter->addLayout(layoutBouton);
-
-
-    MenuConnecter->addStretch();        // pour enlever l'espace entre s'identifier et le reste
-
-
-
-
-
-
-}
-
-
-
-MainWindow::~MainWindow() {}

@@ -9,42 +9,58 @@
 #include <QTextEdit>
 #include <QMdiArea>
 #include <QFormLayout>
-#include <QVector>
+#include <QStackedWidget>
+#include <QList>
+#include <QMenu>
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
 private:
+    // --- Architecture (Le "Livre" avec 2 pages) ---
+    QStackedWidget *stackedWidget;
+    QWidget *pageConnexion;
+    QWidget *pagePrincipale;
 
-    QLineEdit *champID;         //le champ ou on mettra son ID pour se connecter
-    QLineEdit *champMDP;        //le campe ou on mettra sin mot de passe pour se connecter
-    QPushButton * suivant;  //ca sera le bouton suivant pour passer au deuxième menu
-    bool verifconex();
-    //les menus decla
+    // --- Données de Session ---
+    QString m_roleUtilisateurActuel;
+    QString m_idUtilisateurActuel;
+    QList<Facture> listeFactures;
+
+    // --- Widgets de Connexion ---
+    QLineEdit *champID;
+    QLineEdit *champMDP;
+    QPushButton *suivant;
+
+    // --- Widgets Principaux ---
     QVBoxLayout *layoutAccueil;
-    QVBoxLayout *MenuConnecter;
     QTextEdit *affichageFacture;
-    QWidget *fenetreFacture;
     QMdiArea *m_mdiArea;
-    QVector<Facture> listeFactures; //julyan
+    QWidget *fenetreFacture;
+    QMenu *MenuAdmin;
+    QMenu *MenuFichier;
 
-private slots :
-    void LayoutSuivant();
+    // --- Méthodes utilitaires ---
+    bool verifierConnexion();
+    bool estAdmin();
+    void creerFichierUtilisateurs();
+    void initialiserInterfacePrincipale();
+    void chargerFacturesUtilisateur(); // Charge les factures au login
+    void sauvegarderFactureUtilisateur(double index); // Sauvegarde dans le JSON
+
+private slots:
+    void layoutSuivant();
+    void deconnexion();
     void ouvrir();
     void addfacture();
     void NouveauChamps();
-    bool estAdmin();
     void changerLesVals();
-    void afficherStats(); //julyan
+    void afficherStats();
+    void adminCreerCompte();
+
 public:
-
-
-
-
-    MainWindow(QWidget *parent = nullptr);      //constructeur
-    ~MainWindow();      //destructeur
-
-private slots :
-
+    MainWindow(QWidget *parent = nullptr);
+    ~MainWindow();
 };
 #endif // MAINWINDOW_H

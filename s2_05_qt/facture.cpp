@@ -1,5 +1,9 @@
 #include "facture.h"
 
+// Initialisation des variables statiques
+double Facture::m_abonnementMensuel = 12.60;
+double Facture::m_prixkWh = 0.2516;
+
 Facture::Facture(double indexInitial, double indexActuel)
     : m_indexInitial(indexInitial), m_indexActuel(indexActuel) {}
 
@@ -9,7 +13,6 @@ void Facture::setReleves(double initial, double actuel) {
 }
 
 bool Facture::estValide() const {
-
     return (m_indexActuel >= m_indexInitial);
 }
 
@@ -46,22 +49,8 @@ QString Facture::getResume() const {
         .arg(getMontantTotalTTC(), 0, 'f', 2);
 }
 
-// partie Julyan
-double Facture::m_abonnementMensuel = 12.60;
-double Facture::m_prixkWh = 0.2516;
-
-void Facture::setPrixKwh(double prix) {
-    m_prixkWh = prix;
-}
-
-void Facture::setAbonnement(double abo) {
-    m_abonnementMensuel = abo;
-}
-
-double Facture::getPrixKwh() {
-    return m_prixkWh;
-}
-
-double Facture::getAbonnement() {
-    return m_abonnementMensuel;
-}
+// Getters et Setters pour l'admin
+double Facture::getPrixKwh() { return m_prixkWh; }
+void Facture::setPrixKwh(double prix) { m_prixkWh = prix; }
+double Facture::getAbonnement() { return m_abonnementMensuel; }
+void Facture::setAbonnement(double abo) { m_abonnementMensuel = abo; }

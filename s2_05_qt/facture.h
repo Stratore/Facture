@@ -5,30 +5,25 @@
 class Facture
 {
 public:
-
     Facture(double indexInitial = 0, double indexActuel = 0);
-
     void setReleves(double initial, double actuel);
-
-    double getConsommation() const;
-    double getCoutConsommation() const;
-    double getMontantTotalTTC() const;
-
+    double getConsommation() const;      // Différence des index
+    double getCoutConsommation() const;  // Consommation * Prix du kWh
+    double getMontantTotalTTC() const;   // Cout consommation + Abonnement
     bool estValide() const;
-    QString getResume() const;
+    QString getResume() const;           // Génère le texte détaillé pour l'affichage
 
-    //parti admin par Julyan
+    // Méthodes statiques pour l'admin
+    static double getPrixKwh();
     static void setPrixKwh(double prix);
+    static double getAbonnement();
     static void setAbonnement(double abo);
 
-    static double getPrixKwh();
-    static double getAbonnement();
-
-private :
+private:
     double m_indexInitial;
     double m_indexActuel;
 
-    // static = commun à toutes les factures
+    // Variables tarifaires modifiables par l'admin
     static double m_abonnementMensuel;
     static double m_prixkWh;
 };
