@@ -8,6 +8,7 @@
 #include <QVBoxLayout>
 #include <QTextEdit>
 #include <QMdiArea>
+#include <QFormLayout>
 
 class MainWindow : public QMainWindow
 {
@@ -23,6 +24,7 @@ private:
     QVBoxLayout *layoutAccueil;
     QVBoxLayout *MenuConnecter;
     QTextEdit *affichageFacture;
+    QWidget *fenetreFacture;
     QMdiArea *m_mdiArea;
 
 private slots :

@@ -7,6 +7,7 @@
 #include <QFont>
 #include <QMenuBar>
 #include <QFileDialog>
+#include <QMdiSubWindow>
 
 
 
@@ -18,17 +19,51 @@ bool MainWindow::verifconex() {     //cette fonctione permet de vérifier si l'u
 }
 
 void MainWindow::addfacture() {                 //rejouter une noouvelle facture
-    QWidget *fenetreVide = new QWidget();   //on crée un widget
+    fenetreFacture = new QWidget();   //on crée un widget
 
-    fenetreVide->setWindowTitle("Nouvelle Facture");
+    fenetreFacture->setWindowTitle("Nouvelle Facture");
 
-    m_mdiArea->addSubWindow(fenetreVide);       //on l'ajoute a la zone mdi
+    QVBoxLayout *layoutInterne = new QVBoxLayout(fenetreFacture);
 
-    fenetreVide->show();        //on l'affiche
+    //fonctionélitées
+    QPushButton *AjouterUnChamps= new QPushButton("Ajouter un champs");
+    connect(AjouterUnChamps, SIGNAL(clicked()), this, SLOT(NouveauChamps()));
+    layoutInterne->addWidget(AjouterUnChamps);
+
+
+    m_mdiArea->addSubWindow(fenetreFacture);       //on l'ajoute a la zone mdi
+
+    fenetreFacture->show();        //on l'affiche
 }
 
 
 void MainWindow::NouveauChamps() {
+
+
+
+
+    QWidget *conteneurnouveauchamp = new QWidget(); //on crée un nouveau conteneur
+    QFormLayout *layoutNewChamps = new QFormLayout(conteneurnouveauchamp); // on crée un nouveau layout
+
+
+    QLineEdit *champIndex = new QLineEdit();
+    layoutNewChamps->addRow("Index Initial (kWh) :", champIndex);
+
+
+    conteneurnouveauchamp->setWindowTitle("Champs");  //nom de la fenêtre
+
+
+    connect(champIndex, &QLineEdit::returnPressed, [=]() {
+        QString texte = champIndex->text();
+
+        if (!texte.isEmpty()) {
+            layoutAccueil->addWidget(new QLabel("Valeure ajoutée : " + texte));
+            conteneurnouveauchamp->close();
+        }
+
+
+    });
+    conteneurnouveauchamp->show();
 
 }
 
@@ -61,13 +96,11 @@ void MainWindow::LayoutSuivant() {
         QLabel *bienvenue = new QLabel("Bienvenue dans votre session Utilisateur");
         bienvenue->setAlignment(Qt::AlignCenter);
 
-        //fonctionélitées
-        QPushButton *AjouterUnChamps= new QPushButton("Ajouter un champs");
-        connect(AjouterUnChamps, SIGNAL(clicked()), this, SLOT(NouveauChamps()));
+
 
 
         layoutAccueil->addWidget(bienvenue);
-        layoutAccueil->addWidget(AjouterUnChamps);
+
         layoutAccueil->addWidget(m_mdiArea);
 
 
@@ -79,7 +112,8 @@ void MainWindow::LayoutSuivant() {
 
         champID->clear();
         champMDP->clear();
-        champID->setPlaceholderText("veuillez remplir les deux champs");
+        champID->setPlaceholderText("veuillez remplir les deux champs");        //changer ici
+
     }
 
     //Menu fichier ---------------------------------------------------------
