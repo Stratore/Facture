@@ -28,6 +28,7 @@ private:
     QMdiArea *m_mdiArea;
     QVector<Facture> listeFactures; //julyan
 
+
 private slots :
     void LayoutSuivant();
     void ouvrir();
@@ -36,6 +37,7 @@ private slots :
     bool estAdmin();
     void changerLesVals();
     void afficherStats(); //julyan
+    void sauvegarder();
 public:
 
 

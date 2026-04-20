@@ -23,26 +23,50 @@ bool MainWindow::verifconex() {
     }
 }
 
-
-void MainWindow::addfacture() {                 //rejouter une noouvelle facture
-    fenetreFacture = new QWidget();   //on crée un widget
-
-    fenetreFacture->setWindowTitle("Nouvelle Facture");
-
-    QVBoxLayout *layoutInterne = new QVBoxLayout(fenetreFacture);
-
-    layoutAccueil->addWidget(new QLabel);        //////////////////////////////////////////////////changer
-
-    //fonctionélitées
-    QPushButton *AjouterUnChamps= new QPushButton("Ajouter un champs");
-    connect(AjouterUnChamps, SIGNAL(clicked()), this, SLOT(NouveauChamps()));
-    layoutInterne->addWidget(AjouterUnChamps);
-
-
-    m_mdiArea->addSubWindow(fenetreFacture);       //on l'ajoute a la zone mdi
-
-    fenetreFacture->show();        //on l'affiche
+void MainWindow::sauvegarder() {
+    QFile fichier("factures.txt");
+    if (fichier.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream flux(&fichier);
+        for (const Facture &f : listeFactures) {
+            // On enregistre : indexInitial;indexActuel
+            flux << f.getConsommation() << ";" << f.getMontantTotalTTC() << "\n";
+        }
+        fichier.close();
+    }
 }
+
+
+
+void MainWindow::addfacture() {
+    QWidget *form = new QWidget();
+    form->setWindowTitle("Nouvelle Saisie");
+    QFormLayout *layout = new QFormLayout(form);
+
+    QLineEdit *editInit = new QLineEdit();
+    QLineEdit *editActuel = new QLineEdit();
+    QPushButton *btnValider = new QPushButton("Calculer et Enregistrer");
+
+    layout->addRow("Index Précédent :", editInit);
+    layout->addRow("Index Actuel :", editActuel);
+    layout->addRow(btnValider);
+
+    connect(btnValider, &QPushButton::clicked, [=]() {
+        double valInit = editInit->text().toDouble();
+        double valActu = editActuel->text().toDouble();
+
+        Facture f(valInit, valActu);
+        if (f.estValide()) {
+            listeFactures.append(f);
+            afficherStats(); // On met à jour l'affichage direct
+            sauvegarder();   // On enregistre sur le disque
+            form->close();
+        }
+    });
+
+    m_mdiArea->addSubWindow(form);
+    form->show();
+}
+
 
 
 void MainWindow::NouveauChamps() {
@@ -81,6 +105,25 @@ void MainWindow::NouveauChamps() {
 
 }
 
+void MainWindow::afficherStats() {
+    double totalEuros = 0;
+    double totalKwh = 0;
+
+    for (const Facture &f : listeFactures) {
+        totalEuros += f.getMontantTotalTTC();
+        totalKwh += f.getConsommation();
+    }
+
+    QString rapport = "=== TABLEAU DE BORD ===\n";
+    rapport += "Nombre de relevés : " + QString::number(listeFactures.size()) + "\n";
+    rapport += "Consommation cumulée : " + QString::number(totalKwh) + " kWh\n";
+    rapport += "Dépense Totale : " + QString::number(totalEuros, 'f', 2) + " €\n";
+
+    affichageFacture->setPlainText(rapport);
+}
+
+
+
 void MainWindow::changerLesVals() { // julyan
 
     QWidget *fenetre = new QWidget();
@@ -112,27 +155,6 @@ void MainWindow::changerLesVals() { // julyan
     });
 
     fenetre->show();
-}
-
-void MainWindow::afficherStats() { //julyan
-
-    double total = 0;
-
-    for (const Facture &f : listeFactures) {
-        total += f.getConsommation();
-    }
-
-    double moyenne = 0;
-    if (!listeFactures.isEmpty())
-        moyenne = total / listeFactures.size();
-
-    QString stats =
-        "----- STATISTIQUES -----\n"
-        "Nombre de factures : " + QString::number(listeFactures.size()) + "\n" +
-        "Consommation totale : " + QString::number(total) + " kWh\n" +
-        "Moyenne : " + QString::number(moyenne) + " kWh\n";
-
-    affichageFacture->setPlainText(stats);
 }
 
 bool MainWindow::estAdmin() {               // si l'utilisateur est un administrateur
