@@ -1,4 +1,6 @@
 #include "mainwindow.h"
+#include "facture.h"
+
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QFormLayout>
@@ -8,8 +10,9 @@
 #include <QMenuBar>
 #include <QFileDialog>
 #include <QMdiSubWindow>
-
-
+#include <QMessageBox>
+#include <QFile>
+#include <QTextStream>
 
 bool MainWindow::verifconex() {
     QString id = champID->text();
@@ -23,21 +26,32 @@ bool MainWindow::verifconex() {
     }
 }
 
+// --- NOUVEAUTÉ : LA DÉCONNEXION ---
+void MainWindow::deconnecter() {
+    // 1. On efface la barre de menu (Fichier, Admin...)
+    menuBar()->clear();
+
+    // 2. On vide la liste des factures en mémoire pour le prochain utilisateur
+    listeFactures.clear();
+
+    // 3. On réaffiche l'écran de départ
+    afficherEcranConnexion();
+}
+
 void MainWindow::sauvegarder() {
     QFile fichier("factures.txt");
-    if (fichier.open(QIODevice::WriteOnly | QIODevice::Text)) {
+    if (fichier.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Append)) {
         QTextStream flux(&fichier);
-        for (const Facture &f : listeFactures) {
+        if (!listeFactures.isEmpty()) {
+            Facture f = listeFactures.last();
             // On enregistre : indexInitial;indexActuel
-            flux << f.getConsommation() << ";" << f.getMontantTotalTTC() << "\n";
+            flux << "Conso: " << f.getConsommation() << " kWh | Total: " << f.getMontantTotalTTC() << " euros\n";
         }
         fichier.close();
     }
 }
 
-
-
-void MainWindow::addfacture() {
+void MainWindow::addfacture() {             //rejouter une noouvelle facture
     QWidget *form = new QWidget();
     form->setWindowTitle("Nouvelle Saisie");
     QFormLayout *layout = new QFormLayout(form);
@@ -59,7 +73,15 @@ void MainWindow::addfacture() {
             listeFactures.append(f);
             afficherStats(); // On met à jour l'affichage direct
             sauvegarder();   // On enregistre sur le disque
-            form->close();
+
+            // On vide les cases au lieu de fermer la fenêtre pour enchaîner les saisies
+            editInit->clear();
+            editActuel->clear();
+            editInit->setFocus();
+
+            QMessageBox::information(form, "Succès", "Facture ajoutée ! Vous pouvez saisir la suivante.");
+        } else {
+            QMessageBox::warning(form, "Erreur", "L'index actuel doit être supérieur au précédent.");
         }
     });
 
@@ -67,42 +89,30 @@ void MainWindow::addfacture() {
     form->show();
 }
 
-
-
 void MainWindow::NouveauChamps() {
-
-
-
-
     QWidget *conteneurnouveauchamp = new QWidget(); //on crée un nouveau conteneur
     QFormLayout *layoutNewChamps = new QFormLayout(conteneurnouveauchamp); // on crée un nouveau layout
 
-
     QLineEdit *champIndex = new QLineEdit();
-    layoutNewChamps->addRow("Index Initial (kWh) :", champIndex);
+    layoutNewChamps->addRow("Nouvel Index (kWh) :", champIndex);
 
-
-    conteneurnouveauchamp->setWindowTitle("Champs");  //nom de la fenêtre
-
+    conteneurnouveauchamp->setWindowTitle("Saisie Rapide"); //nom de la fenêtre
 
     connect(champIndex, &QLineEdit::returnPressed, [=]() { //nouvelle version par Julyan
-
         QString texte = champIndex->text();
-
         if (!texte.isEmpty()) {
-
             double index = texte.toDouble();
-
             Facture f(0, index); // simple exemple
             listeFactures.append(f);
 
-            layoutAccueil->addWidget(new QLabel("Facture ajoutée : " + texte));
-
+            afficherStats();
+            sauvegarder();
             conteneurnouveauchamp->close();
         }
     });
-    conteneurnouveauchamp->show();
 
+    m_mdiArea->addSubWindow(conteneurnouveauchamp);
+    conteneurnouveauchamp->show();
 }
 
 void MainWindow::afficherStats() {
@@ -114,18 +124,22 @@ void MainWindow::afficherStats() {
         totalKwh += f.getConsommation();
     }
 
-    QString rapport = "=== TABLEAU DE BORD ===\n";
-    rapport += "Nombre de relevés : " + QString::number(listeFactures.size()) + "\n";
-    rapport += "Consommation cumulée : " + QString::number(totalKwh) + " kWh\n";
-    rapport += "Dépense Totale : " + QString::number(totalEuros, 'f', 2) + " €\n";
+    double moyenne = (listeFactures.isEmpty()) ? 0 : totalKwh / listeFactures.size();
+
+    QString rapport = "=================================================\n";
+    rapport += "              TABLEAU DE BORD GLOBAL             \n";
+    rapport += "=================================================\n\n";
+
+    rapport += " Nombre total de relevés : " + QString::number(listeFactures.size()) + "\n\n";
+    rapport += " Consommation cumulée    : " + QString::number(totalKwh) + " kWh\n";
+    rapport += " Moyenne par relevé      : " + QString::number(moyenne, 'f', 2) + " kWh\n\n";
+    rapport += " Dépense Totale TTC      : " + QString::number(totalEuros, 'f', 2) + " euros\n";
+    rapport += "=================================================\n";
 
     affichageFacture->setPlainText(rapport);
 }
 
-
-
 void MainWindow::changerLesVals() { // julyan
-
     QWidget *fenetre = new QWidget();
     fenetre->setWindowTitle("Paramètres Admin");
 
@@ -144,7 +158,6 @@ void MainWindow::changerLesVals() { // julyan
     layout->addWidget(btnValider);
 
     connect(btnValider, &QPushButton::clicked, [=]() {
-
         if (!champPrix->text().isEmpty())
             Facture::setPrixKwh(champPrix->text().toDouble());
 
@@ -157,18 +170,16 @@ void MainWindow::changerLesVals() { // julyan
     fenetre->show();
 }
 
-bool MainWindow::estAdmin() {               // si l'utilisateur est un administrateur
+bool MainWindow::estAdmin() {              // si l'utilisateur est un administrateur
     if (champID->text() == "admin" && champMDP->text() == "1234")
         return true;
     else
         return false;
 }
 
-
 void MainWindow::LayoutSuivant() {
 
     if (verifconex()) {
-
 
         //création de widget maitre qui contiendra tous
         QWidget *conteneurAccueil = new QWidget(); //on crée un nouveau conteneur
@@ -179,89 +190,71 @@ void MainWindow::LayoutSuivant() {
         m_mdiArea->setTabsClosable(true);
 
         //création d'un titre
-        QLabel *bienvenue = new QLabel("Bienvenue dans votre session Utilisateur");
+        QLabel *bienvenue = new QLabel("Bienvenue dans votre session");
         bienvenue->setAlignment(Qt::AlignCenter);
 
+        affichageFacture = new QTextEdit();
+        affichageFacture->setReadOnly(true); // On ne veut pas que l'utilisateur modifie la facture
+        affichageFacture->setMinimumHeight(250); // Le tableau de bord est plus grand
 
-
+        QFont policeStats("Courier", 10);
+        affichageFacture->setFont(policeStats);
 
         layoutAccueil->addWidget(bienvenue);
-
         layoutAccueil->addWidget(m_mdiArea);
-
-
+        layoutAccueil->addWidget(affichageFacture);
 
         setCentralWidget(conteneurAccueil);
-
 
         //Menu fichier ---------------------------------------------------------
         QMenu *MenuFichier = new QMenu(QString::fromUtf8("&Fichier"), this);
         menuBar()->addMenu(MenuFichier);  //création de fichier
 
-
         //crée l'action ouvrire ------
         QAction *actionOuvrir = new QAction(QString::fromUtf8("Ouvrir"), this);
-
         connect(actionOuvrir, SIGNAL(triggered()), this, SLOT(ouvrir()));
-        //ajouter action enregistrer au menu nouveau
         MenuFichier->addAction(actionOuvrir);
-
-
-        affichageFacture = new QTextEdit();
-        affichageFacture->setReadOnly(true); // On ne veut pas que l'utilisateur modifie la facture
-        layoutAccueil->addWidget(affichageFacture);
-
-
 
         //creer une nouvelle facture
         QAction *CreerNouvelleFacture = new QAction(QString::fromUtf8("Nouvelle Facture"), this);
-
         connect(CreerNouvelleFacture, SIGNAL(triggered()), this, SLOT(addfacture()));
-        //ajouter action enregistrer au menu nouveau
         MenuFichier->addAction(CreerNouvelleFacture);
 
-
+        // --- NOUVEAUTÉ : Le bouton déconnecter dans Fichier ---
+        MenuFichier->addSeparator(); // Petite ligne esthétique
+        QAction *actionDeconnecter = new QAction(QString::fromUtf8("Déconnecter"), this);
+        connect(actionDeconnecter, SIGNAL(triggered()), this, SLOT(deconnecter()));
+        MenuFichier->addAction(actionDeconnecter);
 
         // Fonctionalitées ADMINE
         if (estAdmin()) {       //si l'utilisateur est un admine
             QMenu *MenuAdmin = new QMenu(QString::fromUtf8("Administrateur"), this);
             menuBar()->addMenu(MenuAdmin);
 
-
             QAction *changerLesValeur = new QAction(QString::fromUtf8("Changer les valeurs"), this);
-
-            connect(changerLesValeur, SIGNAL(triggered()), this, SLOT(changerLesVals));
-            //ajouter action enregistrer au menu nouveau
+            connect(changerLesValeur, SIGNAL(triggered()), this, SLOT(changerLesVals()));
             MenuAdmin->addAction(changerLesValeur);
 
             QAction *statsAction = new QAction("Statistiques", this);
             connect(statsAction, SIGNAL(triggered()), this, SLOT(afficherStats()));
             MenuAdmin->addAction(statsAction);
-
         }
 
-
-
-
+        // On affiche les stats à 0 dès l'ouverture
+        afficherStats();
 
     } else {
-
         champID->clear();
         champMDP->clear();
         champID->setPlaceholderText("Identifiants incorrects !");
         champID->setFocus();
-
     }
-
-
 }
-
-
 
 void MainWindow::ouvrir() {
     // 1. On demande le fichier à l'utilisateur
     QString fileName = QFileDialog::getOpenFileName(
-        this,                             // 'this' au lieu de 0 pour centrer la fenêtre
+        this,                                 // 'this' au lieu de 0 pour centrer la fenêtre
         "Sélectionner la facture",
         QDir::homePath(),                 // Ouvre dans le dossier utilisateur
         "Fichiers textes (*.txt);;Tous les fichiers (*.*)");
@@ -290,20 +283,8 @@ void MainWindow::ouvrir() {
 }
 
 
-
-
-
-
-
-MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent)
-{
-    //paramètre de la fenêtre
-    setWindowTitle("Facture");  //nom de la fenêtre
-    setWindowFlags(Qt::WindowStaysOnTopHint);       //pour le fait que quand elle aparaisse elle soit au dessu de tout
-    resize(700,700);        //la taille de la fenêtre
-
-    //def menu :
+// --- NOUVEAUTÉ : On rassemble la création de l'écran ici ---
+void MainWindow::afficherEcranConnexion() {
     // 1. On crée un widget "conteneur"
     QWidget *conteneur = new QWidget(this);
 
@@ -312,11 +293,6 @@ MainWindow::MainWindow(QWidget *parent)
 
     // 3. On crée le layout EN LE RATTACHANT au conteneur
     MenuConnecter = new QVBoxLayout(conteneur);
-
-
-
-
-
 
     //Le TITRE
     QLabel *label = new QLabel();                       //titre s'identifer
@@ -332,9 +308,7 @@ MainWindow::MainWindow(QWidget *parent)
     label->setFont(police);
     MenuConnecter -> addWidget(label);    //Le TITRE
 
-
     MenuConnecter->addSpacing(30);      //pour rajouter un espace
-
 
     //style pour les champs
     QString styleChamps =
@@ -349,35 +323,24 @@ MainWindow::MainWindow(QWidget *parent)
         "  border: 1px solid #a8a8a8;"
         "}";
 
-
     //Champ ID
     champID = new QLineEdit();       // création de la case ou on mettra le ID
     champID->setEchoMode(QLineEdit::Normal);  //ca permet de mettre le champ nprmal
-    champID->setPlaceholderText("Nom Utilisateur");
+    champID->setPlaceholderText("Nom Utilisateur (admin ou user)");
     MenuConnecter -> addWidget(champID);
     champID->setFocus();
     champID->setStyleSheet(styleChamps);
 
-
-
-
-
     MenuConnecter->addSpacing(15);
-
-
 
     //Champ MDP
     champMDP = new QLineEdit();       // création de la case ou on mettra la MDP
     champMDP->setEchoMode(QLineEdit::Password);  //ca permet de mettre le mot de passe en ******** quand on l'écrit pour la confidentialité
-    champMDP->setPlaceholderText("Mot de passe");
+    champMDP->setPlaceholderText("Mot de passe (1234 ou 123)");
     MenuConnecter -> addWidget(champMDP);
     champMDP->setStyleSheet(styleChamps);
 
     MenuConnecter->addSpacing(30);
-
-
-
-
 
     //Bouton suivant
     suivant = new QPushButton("suivant", this);
@@ -405,20 +368,23 @@ MainWindow::MainWindow(QWidget *parent)
 
     //Création d'un layout en H pour suivant pour le metre plus a droite
     QHBoxLayout *layoutBouton = new QHBoxLayout();
-    //layoutBouton->addStretch(); // Le ressort pousse le bouton vers la droite
     layoutBouton->addWidget(suivant); // On ajoute le bouton
     MenuConnecter->addLayout(layoutBouton);
 
-
     MenuConnecter->addStretch();        // pour enlever l'espace entre s'identifier et le reste
-
-
-
-
-
-
 }
 
+// Le constructeur devient tout propre et court !
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent)
+{
+    //paramètre de la fenêtre
+    setWindowTitle("Simulateur de Facture");  //nom de la fenêtre
+    setWindowFlags(Qt::WindowStaysOnTopHint);       //pour le fait que quand elle aparaisse elle soit au dessu de tout
+    resize(700,700);        //la taille de la fenêtre
 
+    // On lance la page de connexion
+    afficherEcranConnexion();
+}
 
 MainWindow::~MainWindow() {}

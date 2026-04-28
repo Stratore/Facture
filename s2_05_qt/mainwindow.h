@@ -10,6 +10,7 @@
 #include <QMdiArea>
 #include <QFormLayout>
 #include <QVector>
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -20,6 +21,7 @@ private:
     QLineEdit *champMDP;        //le campe ou on mettra sin mot de passe pour se connecter
     QPushButton * suivant;  //ca sera le bouton suivant pour passer au deuxième menu
     bool verifconex();
+
     //les menus decla
     QVBoxLayout *layoutAccueil;
     QVBoxLayout *MenuConnecter;
@@ -27,7 +29,6 @@ private:
     QWidget *fenetreFacture;
     QMdiArea *m_mdiArea;
     QVector<Facture> listeFactures; //julyan
-
 
 private slots :
     void LayoutSuivant();
@@ -38,15 +39,14 @@ private slots :
     void changerLesVals();
     void afficherStats(); //julyan
     void sauvegarder();
+
+    // NOUVEAUTÉ : Gestion de la déconnexion
+    void afficherEcranConnexion();
+    void deconnecter();
+
 public:
-
-
-
-
     MainWindow(QWidget *parent = nullptr);      //constructeur
     ~MainWindow();      //destructeur
-
-private slots :
 
 };
 #endif // MAINWINDOW_H
