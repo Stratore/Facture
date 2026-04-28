@@ -1,6 +1,6 @@
 #include "facture.h"
 
-// Initialisation des tarifs (Partie Julyan)
+// initialisation des tarifs (partie julyan)
 double Facture::m_abonnementMensuel = 12.60;
 double Facture::m_prixkWh = 0.2516;
 
@@ -13,10 +13,12 @@ void Facture::setReleves(double initial, double actuel) {
 }
 
 bool Facture::estValide() const {
+    // le nouvel index doit etre > que l ancien
     return (m_indexActuel >= m_indexInitial);
 }
 
 double Facture::getConsommation() const {
+    // calcul de la conso
     return (estValide()) ? (m_indexActuel - m_indexInitial) : 0;
 }
 
@@ -29,13 +31,13 @@ double Facture::getMontantTotalTTC() const {
 }
 
 QString Facture::getResume() const {
-    if (!estValide()) return "Erreur : Index incohérents.";
-    return QString("Conso: %1 kWh | Total: %2 €")
+    if (!estValide()) return "erreur : index incoherents.";
+    return QString("conso: %1 kwh | total: %2 euros")
         .arg(getConsommation())
         .arg(getMontantTotalTTC(), 0, 'f', 2);
 }
 
-// Getters et Setters statiques
+// getters et setters des stats
 void Facture::setPrixKwh(double prix) { m_prixkWh = prix; }
 void Facture::setAbonnement(double abo) { m_abonnementMensuel = abo; }
 double Facture::getPrixKwh() { return m_prixkWh; }

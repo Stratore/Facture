@@ -17,9 +17,9 @@ class MainWindow : public QMainWindow
 
 private:
 
-    QLineEdit *champID;         //le champ ou on mettra son ID pour se connecter
+    QLineEdit *champID;         //le champ ou on mettra son id pour se connecter
     QLineEdit *champMDP;        //le campe ou on mettra sin mot de passe pour se connecter
-    QPushButton * suivant;  //ca sera le bouton suivant pour passer au deuxième menu
+    QPushButton * suivant;  //ca sera le bouton suivant pour passer au deuxieme menu
     bool verifconex();
 
     //les menus decla
@@ -28,7 +28,12 @@ private:
     QTextEdit *affichageFacture;
     QWidget *fenetreFacture;
     QMdiArea *m_mdiArea;
-    QVector<Facture> listeFactures; //julyan
+
+    QVector<Facture> listeFacturesSession;  // pour l'utilisateur en cours
+    QVector<Facture> listeFacturesGlobales; // pour l'admin (historique complet)
+
+    // la nouvelle variable de memoire pour eviter le crash
+    bool m_isAdmin;
 
 private slots :
     void LayoutSuivant();
@@ -40,7 +45,6 @@ private slots :
     void afficherStats(); //julyan
     void sauvegarder();
 
-    // NOUVEAUTÉ : Gestion de la déconnexion
     void afficherEcranConnexion();
     void deconnecter();
 
