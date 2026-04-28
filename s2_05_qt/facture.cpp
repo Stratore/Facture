@@ -1,6 +1,6 @@
 #include "facture.h"
 
-// Initialisation des variables statiques
+// Initialisation des tarifs (Partie Julyan)
 double Facture::m_abonnementMensuel = 12.60;
 double Facture::m_prixkWh = 0.2516;
 
@@ -17,8 +17,7 @@ bool Facture::estValide() const {
 }
 
 double Facture::getConsommation() const {
-    if (!estValide()) return 0;
-    return m_indexActuel - m_indexInitial;
+    return (estValide()) ? (m_indexActuel - m_indexInitial) : 0;
 }
 
 double Facture::getCoutConsommation() const {
@@ -30,27 +29,14 @@ double Facture::getMontantTotalTTC() const {
 }
 
 QString Facture::getResume() const {
-    if (!estValide()) {
-        return "Erreur : L'index actuel est inférieur à l'index initial.";
-    }
-
-    return QString(
-               "--- RÉCAPITULATIF DE FACTURE ---\n"
-               "Consommation totale : %1 kWh\n"
-               "--------------------------------\n"
-               "Abonnement fixe : %2 €\n"
-               "Coût consommation : %3 €\n"
-               "--------------------------------\n"
-               "MONTANT TOTAL TTC : %4 €"
-               )
+    if (!estValide()) return "Erreur : Index incohérents.";
+    return QString("Conso: %1 kWh | Total: %2 €")
         .arg(getConsommation())
-        .arg(m_abonnementMensuel, 0, 'f', 2)
-        .arg(getCoutConsommation(), 0, 'f', 2)
         .arg(getMontantTotalTTC(), 0, 'f', 2);
 }
 
-// Getters et Setters pour l'admin
-double Facture::getPrixKwh() { return m_prixkWh; }
+// Getters et Setters statiques
 void Facture::setPrixKwh(double prix) { m_prixkWh = prix; }
-double Facture::getAbonnement() { return m_abonnementMensuel; }
 void Facture::setAbonnement(double abo) { m_abonnementMensuel = abo; }
+double Facture::getPrixKwh() { return m_prixkWh; }
+double Facture::getAbonnement() { return m_abonnementMensuel; }
